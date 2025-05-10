@@ -331,71 +331,73 @@ export default function Statistics() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 flex-1">
-          {isEditable ? (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Badge variant="secondary" className="text-sm cursor-pointer hover:bg-secondary/80">
-                  Available XP: {availableXP}
-                </Badge>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Manage XP</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <p className="text-sm text-muted-foreground">
-                    Enter the amount of XP you want to add or subtract, then click the plus or minus button.
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      value={xpAmount}
-                      onChange={(e) => setXpAmount(e.target.value)}
-                      className="w-24"
-                      min="1"
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleXpChange(Number(xpAmount))}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleXpChange(-Number(xpAmount))}
-                    >
-                      <Minus className="h-4 w-4" />
-                    </Button>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="w-full space-y-4 sm:space-y-0 sm:flex sm:items-center sm:gap-4">
+          <div className="flex items-center justify-between sm:justify-start gap-4">
+            {isEditable ? (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Badge variant="secondary" className="text-sm cursor-pointer hover:bg-secondary/80">
+                    Available XP: {availableXP}
+                  </Badge>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Manage XP</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <p className="text-sm text-muted-foreground">
+                      Enter the amount of XP you want to add or subtract, then click the plus or minus button.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={xpAmount}
+                        onChange={(e) => setXpAmount(e.target.value)}
+                        className="w-24"
+                        min="1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleXpChange(Number(xpAmount))}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleXpChange(-Number(xpAmount))}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          ) : (
-            <Badge variant="secondary" className="text-sm">
-              Available XP: {availableXP}
-            </Badge>
-          )}
+                </DialogContent>
+              </Dialog>
+            ) : (
+              <Badge variant="secondary" className="text-sm">
+                Available XP: {availableXP}
+              </Badge>
+            )}
+            <div className="flex items-center gap-2">
+              <Switch
+                id="edit-mode"
+                checked={isEditable}
+                onCheckedChange={setIsEditable}
+              />
+              <Label htmlFor="edit-mode">Edit Mode</Label>
+            </div>
+          </div>
           <div className="relative flex-1">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search statistics or skills... (uppercase for shortname only)"
               value={searchQuery}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-              className="pl-8"
+              className="pl-8 w-full"
             />
           </div>
-        </div>
-        <div className="flex items-center gap-2 ml-4">
-          <Switch
-            id="edit-mode"
-            checked={isEditable}
-            onCheckedChange={setIsEditable}
-          />
-          <Label htmlFor="edit-mode">Edit Mode</Label>
         </div>
       </div>
       <StatisticsTable 
