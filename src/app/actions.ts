@@ -10,6 +10,9 @@ export async function updateStatistic(
   statisticId: string,
   data: {
     level?: number;
+    name?: string;
+    shortName?: string;
+    description?: string;
   }
 ) {
   try {
@@ -326,5 +329,51 @@ export async function resetAllSkills(userId: string) {
   } catch (error) {
     console.error('Error resetting skills:', error);
     return { success: false, error: 'Failed to reset skills' };
+  }
+}
+
+export async function createStatistic(userId: string, data: { name: string; shortName: string; description: string }) {
+  try {
+    const statId = uuidv4();
+    const statSlug = data.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    const result = await db.insert(statisticsTable).values({
+      id: statId,
+      userId,
+      name: data.name,
+      shortName: data.shortName,
+      description: data.description,
+      level: 0,
+      slug: statSlug,
+    }).returning();
+
+    return { success: true, data: result[0] };
+  } catch (error) {
+    console.error('Error creating statistic:', error);
+    return { success: false, error: 'Failed to create statistic' };
+  }
+}
+
+export async function createSkill(statisticId: string, data: { name: string; costPerLevel: number }) {
+  try {
+    const skillId = uuidv4();
+    const skillSlug = data.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    const result = await db.insert(skillsTable).values({
+      id: skillId,
+      statisticId,
+      name: data.name,
+      costPerLevel: data.costPerLevel,
+      level: 0,
+      base: 0,
+      bonus: 0,
+      total: 0,
+      slug: skillSlug,
+    }).returning();
+
+    return { success: true, data: result[0] };
+  } catch (error) {
+    console.error('Error creating skill:', error);
+    return { success: false, error: 'Failed to create skill' };
   }
 } 

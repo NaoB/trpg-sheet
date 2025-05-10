@@ -9,10 +9,9 @@ import {
   createColumnHelper,
   ExpandedState,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronRight, Search, MoreHorizontal, BicepsFlexedIcon, Plus, Minus, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronRight, Search, MoreHorizontal, BicepsFlexedIcon, Plus, Minus, RotateCcw, Pencil } from "lucide-react";
 import { AlertCircle } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
-import { Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 import { Skills, Statistic } from "./types";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
@@ -42,7 +41,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "../ui/alert-dialog";
-import { getStatistics, updateStatistic, updateSkill, getUser, updateUserXp, resetAllSkills } from "@/app/actions";
+import { getStatistics, updateStatistic, updateSkill, getUser, updateUserXp, resetAllSkills, createStatistic, createSkill } from "@/app/actions";
 import { toast } from "sonner";
 import { useParams } from "next/navigation";
 
@@ -67,6 +66,26 @@ export default function Statistics() {
   const [isLoading, setIsLoading] = useState(true);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resetXpGain, setResetXpGain] = useState(0);
+  const [showStatDialog, setShowStatDialog] = useState(false);
+  const [statFormData, setStatFormData] = useState<{
+    id?: string;
+    name: string;
+    shortName: string;
+    description: string;
+  }>({
+    name: "",
+    shortName: "",
+    description: "",
+  });
+  const [showSkillDialog, setShowSkillDialog] = useState(false);
+  const [selectedStatistic, setSelectedStatistic] = useState<Statistic | null>(null);
+  const [skillFormData, setSkillFormData] = useState<{
+    name: string;
+    costPerLevel: number;
+  }>({
+    name: "",
+    costPerLevel: 1,
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -337,6 +356,130 @@ export default function Statistics() {
     setShowResetDialog(false);
   };
 
+  const handleCreateStatistic = async () => {
+    if (!statFormData.name.trim() || !statFormData.shortName.trim() || !statFormData.description.trim()) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    try {
+      const result = await createStatistic(userId, {
+        name: statFormData.name.trim(),
+        shortName: statFormData.shortName.trim(),
+        description: statFormData.description.trim(),
+      });
+
+      if (result.success && result.data) {
+        setStatisticsData(prevData => {
+          const updated = [...prevData, { ...result.data, skills: [] }];
+          return updated.sort((a, b) => a.name.localeCompare(b.name));
+        });
+        toast.success("Statistic created successfully");
+        setShowStatDialog(false);
+        setStatFormData({ name: "", shortName: "", description: "" });
+      } else {
+        toast.error("Failed to create statistic");
+      }
+    } catch (error: unknown) {
+      console.error('Error creating statistic:', error);
+      toast.error("An error occurred while creating statistic");
+    }
+  };
+
+  const handleEditStatistic = async () => {
+    if (!statFormData.id || !statFormData.name.trim() || !statFormData.shortName.trim() || !statFormData.description.trim()) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    try {
+      const result = await updateStatistic(userId, statFormData.id, {
+        name: statFormData.name.trim(),
+        shortName: statFormData.shortName.trim(),
+        description: statFormData.description.trim(),
+      });
+
+      if (result.success && result.data) {
+        setStatisticsData(prevData => {
+          const updated = prevData.map(stat => 
+            stat.id === statFormData.id 
+              ? { ...stat, ...result.data }
+              : stat
+          );
+          return updated.sort((a, b) => a.name.localeCompare(b.name));
+        });
+        toast.success("Statistic updated successfully");
+        setShowStatDialog(false);
+        setStatFormData({ name: "", shortName: "", description: "" });
+      } else {
+        toast.error("Failed to update statistic");
+      }
+    } catch (error: unknown) {
+      console.error('Error updating statistic:', error);
+      toast.error("An error occurred while updating statistic");
+    }
+  };
+
+  const handleStatDialogSubmit = () => {
+    if (statFormData.id) {
+      handleEditStatistic();
+    } else {
+      handleCreateStatistic();
+    }
+  };
+
+  const openEditDialog = (statistic: Statistic) => {
+    setStatFormData({
+      id: statistic.id,
+      name: statistic.name,
+      shortName: statistic.shortName,
+      description: statistic.description,
+    });
+    setShowStatDialog(true);
+  };
+
+  const handleCreateSkill = async () => {
+    if (!selectedStatistic || !skillFormData.name.trim()) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    try {
+      const result = await createSkill(selectedStatistic.id, {
+        name: skillFormData.name.trim(),
+        costPerLevel: skillFormData.costPerLevel,
+      });
+
+      if (result.success && result.data) {
+        setStatisticsData(prevData => {
+          const updated = prevData.map(stat => {
+            if (stat.id === selectedStatistic.id) {
+              return {
+                ...stat,
+                skills: [...stat.skills, result.data].sort((a, b) => a.name.localeCompare(b.name))
+              };
+            }
+            return stat;
+          });
+          return updated;
+        });
+        toast.success("Skill created successfully");
+        setShowSkillDialog(false);
+        setSkillFormData({ name: "", costPerLevel: 1 });
+      } else {
+        toast.error("Failed to create skill");
+      }
+    } catch (error: unknown) {
+      console.error('Error creating skill:', error);
+      toast.error("An error occurred while creating skill");
+    }
+  };
+
+  const openCreateSkillDialog = (statistic: Statistic) => {
+    setSelectedStatistic(statistic);
+    setShowSkillDialog(true);
+  };
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
@@ -401,6 +544,92 @@ export default function Statistics() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog open={showStatDialog} onOpenChange={setShowStatDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{statFormData.id ? "Edit Statistic" : "Create New Statistic"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                value={statFormData.name}
+                onChange={(e) => setStatFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter statistic name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="shortName">Short Name</Label>
+              <Input
+                id="shortName"
+                value={statFormData.shortName}
+                onChange={(e) => setStatFormData(prev => ({ ...prev, shortName: e.target.value }))}
+                placeholder="Enter short name (e.g. STR)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                value={statFormData.description}
+                onChange={(e) => setStatFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter statistic description"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => {
+              setShowStatDialog(false);
+              setStatFormData({ name: "", shortName: "", description: "" });
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleStatDialogSubmit}>
+              {statFormData.id ? "Save Changes" : "Create"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showSkillDialog} onOpenChange={setShowSkillDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Skill for {selectedStatistic?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="skillName">Name</Label>
+              <Input
+                id="skillName"
+                value={skillFormData.name}
+                onChange={(e) => setSkillFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter skill name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="costPerLevel">Cost Per Level</Label>
+              <Input
+                id="costPerLevel"
+                type="number"
+                min="1"
+                value={skillFormData.costPerLevel}
+                onChange={(e) => setSkillFormData(prev => ({ ...prev, costPerLevel: parseInt(e.target.value) || 1 }))}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => {
+              setShowSkillDialog(false);
+              setSkillFormData({ name: "", costPerLevel: 1 });
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateSkill}>
+              Create
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="w-full space-y-4 sm:space-y-0 sm:flex sm:items-center sm:gap-4">
           <div className="flex items-center justify-between sm:justify-start gap-4">
@@ -486,7 +715,17 @@ export default function Statistics() {
         onDataEdit={handleDataEdit}
         isEditable={isEditable}
         onLevelUp={handleLevelUp}
+        onEditStatistic={openEditDialog}
+        onCreateSkill={openCreateSkillDialog}
       />
+      {isEditable && (
+        <div className="flex justify-end">
+          <Button onClick={() => setShowStatDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Statistic
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -497,12 +736,15 @@ interface StatisticsTableProps {
   onDataEdit: (data: Statistic | Skills, field: string, value: number) => void;
   isEditable: boolean;
   onLevelUp: (data: Statistic | Skills) => void;
+  onEditStatistic?: (statistic: Statistic) => void;
+  onCreateSkill?: (statistic: Statistic) => void;
 }
 
-function StatisticsTable({ data, searchQuery, onDataEdit, isEditable, onLevelUp }: StatisticsTableProps) {
+function StatisticsTable({ data, searchQuery, onDataEdit, isEditable, onLevelUp, onEditStatistic, onCreateSkill }: StatisticsTableProps) {
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [editingCell, setEditingCell] = useState<{ data: Statistic | Skills; field: string } | null>(null);
   const [editValue, setEditValue] = useState<string>("");
+  const [selectedStatistic, setSelectedStatistic] = useState<Statistic | null>(null);
   
   const columnHelper = createColumnHelper<Statistic | Skills>();
   
@@ -531,46 +773,43 @@ function StatisticsTable({ data, searchQuery, onDataEdit, isEditable, onLevelUp 
   const columns = [
     columnHelper.accessor("name", {
       header: "Name",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2" style={{ paddingLeft: `${row.depth * 2}rem` }}>
-          {row.getCanExpand() && (
-            <button
-              onClick={row.getToggleExpandedHandler()}
-              className="p-1 hover:bg-gray-100 rounded"
-            >
-              {row.getIsExpanded() ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-            </button>
-          )}
-          {row.depth === 0 ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span tabIndex={0} aria-label={row.original.name} className="font-semibold cursor-help focus:outline-none">{row.getValue("name")}</span>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-72">{(row.original as Statistic).description}</TooltipContent>
-            </Tooltip>
-          ) : (
-            <span className="flex items-center gap-1">
-              {row.getValue("name")}
-              {"costPerLevel" in row.original && row.original.costPerLevel > 1 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span tabIndex={0} aria-label="This skill costs more XP per level" className="ml-1 text-yellow-600">
-                      <AlertCircle className="h-4 w-4" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    This skill costs {row.original.costPerLevel} XP per level.
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </span>
-          )}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const isStatistic = Array.isArray((row.original as Statistic).skills);
+        
+        return (
+          <div className="flex items-center gap-2" style={{ paddingLeft: `${row.depth * 2}rem` }}>
+            {row.getCanExpand() && (
+              <button
+                onClick={row.getToggleExpandedHandler()}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                {row.getIsExpanded() ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+            )}
+            {isStatistic ? (
+              <button
+                onClick={() => setSelectedStatistic(row.original as Statistic)}
+                className="font-semibold hover:underline text-left"
+              >
+                {row.getValue("name")}
+              </button>
+            ) : (
+              <span className="flex items-center gap-1">
+                {row.getValue("name")}
+                {"costPerLevel" in row.original && row.original.costPerLevel > 1 && (
+                  <span className="ml-1 text-yellow-600" title={`This skill costs ${row.original.costPerLevel} XP per level`}>
+                    <AlertCircle className="h-4 w-4" />
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
+        );
+      },
     }),
     columnHelper.accessor("level", {
       header: "Level",
@@ -674,6 +913,8 @@ function StatisticsTable({ data, searchQuery, onDataEdit, isEditable, onLevelUp 
       id: "actions",
       header: "Action",
       cell: ({ row }) => {
+        const isStatistic = Array.isArray((row.original as Statistic).skills);
+        
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -682,6 +923,26 @@ function StatisticsTable({ data, searchQuery, onDataEdit, isEditable, onLevelUp 
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {isStatistic && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      onEditStatistic?.(row.original as Statistic);
+                    }}
+                  >
+                    <Pencil className="mr-1 h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      onCreateSkill?.(row.original as Statistic);
+                    }}
+                  >
+                    <Plus className="mr-1 h-4 w-4" />
+                    Create Skill
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuItem
                 onClick={() => {
                   onLevelUp(row.original);
@@ -753,6 +1014,16 @@ function StatisticsTable({ data, searchQuery, onDataEdit, isEditable, onLevelUp 
           })}
         </TableBody>
       </Table>
+      <Dialog open={!!selectedStatistic} onOpenChange={() => setSelectedStatistic(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedStatistic?.name}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {selectedStatistic?.description}
+          </p>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
