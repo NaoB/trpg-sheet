@@ -11,10 +11,9 @@ import {
 } from "@tanstack/react-table";
 import { ChevronDown, ChevronRight, Search, MoreHorizontal, BicepsFlexedIcon, Plus, Minus } from "lucide-react";
 import { AlertCircle } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 import { Skills, Statistic } from "./types";
-import { data } from "./data";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
 import { Label } from "../ui/label";
@@ -43,10 +42,17 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "../ui/alert-dialog";
+// import { useParams } from "next/navigation";
+import { getStatistics, updateStatistic, updateSkill, initializeStatistics } from "@/app/actions";
+import { toast } from "sonner";
 
 export default function Statistics() {
+  // const params = useParams();
+  // const userId = params.userId as string;
+  const userId = 'dc90a488-47a1-4b84-af21-afa06d5405ef'
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [statisticsData, setStatisticsData] = useState(data);
+  const [statisticsData, setStatisticsData] = useState<Statistic[]>([]);
   const [isEditable, setIsEditable] = useState(false);
   const [availableXP, setAvailableXP] = useState(100);
   const [xpAmount, setXpAmount] = useState("0");
@@ -59,6 +65,36 @@ export default function Statistics() {
   const [showLevelUpDialog, setShowLevelUpDialog] = useState(false);
   const [levelUpError, setLevelUpError] = useState<string | null>(null);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const result = await getStatistics(userId);
+        if (result.success && result.data) {
+          // Sort statistics by name
+          const sortedStatistics = result.data.sort((a, b) => a.name.localeCompare(b.name));
+          
+          // Sort skills within each statistic
+          const statisticsWithSortedSkills = sortedStatistics.map(stat => ({
+            ...stat,
+            skills: stat.skills.sort((a, b) => a.name.localeCompare(b.name))
+          }));
+          
+          setStatisticsData(statisticsWithSortedSkills);
+        } else {
+          toast.error("Failed to fetch statistics");
+        }
+      } catch (error: unknown) {
+        console.error('Error fetching statistics:', error);
+        toast.error("An error occurred while fetching statistics");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [userId]);
   
   const handleXpChange = (amount: number) => {
     setAvailableXP(prev => Math.max(0, prev + amount));
@@ -81,24 +117,44 @@ export default function Statistics() {
     });
   }
 
-  const handleDataEdit = (data: Statistic | Skills, field: string, value: number) => {
-    setStatisticsData(prevData => {
-      const updated = prevData.map(stat => {
-        // Check if this is the main statistic row
-        if (stat === data) {
-          return { ...stat, [field]: value };
-        }
-        // Check if this is a skill row
-        const updatedSkills = stat.skills.map(skill => {
-          if (skill === data) {
-            return { ...skill, [field]: value };
-          }
-          return skill;
+  const handleDataEdit = async (data: Statistic | Skills, field: string, value: number) => {
+    try {
+      const isStatistic = Array.isArray((data as Statistic).skills);
+      let result;
+
+      if (isStatistic) {
+        result = await updateStatistic(userId, data.id, { [field]: value });
+      } else {
+        result = await updateSkill(data.id, { [field]: value });
+      }
+
+      if (result.success) {
+        setStatisticsData(prevData => {
+          const updated = prevData.map(stat => {
+            if (isStatistic && stat.id === data.id) {
+              return { ...stat, [field]: value };
+            }
+            if (!isStatistic) {
+              const updatedSkills = stat.skills.map(skill => {
+                if (skill.id === data.id) {
+                  return { ...skill, [field]: value };
+                }
+                return skill;
+              });
+              return { ...stat, skills: updatedSkills };
+            }
+            return stat;
+          });
+          return recalculateTotals(updated);
         });
-        return { ...stat, skills: updatedSkills };
-      });
-      return recalculateTotals(updated);
-    });
+        toast.success("Update successful");
+      } else {
+        toast.error("Failed to update");
+      }
+    } catch (error: unknown) {
+      console.error('Error updating data:', error);
+      toast.error("An error occurred while updating");
+    }
   };
   
   const filteredData = useMemo(() => {
@@ -157,29 +213,48 @@ export default function Statistics() {
     setShowLevelUpDialog(true);
   };
 
-  const confirmLevelUp = () => {
+  const confirmLevelUp = async () => {
     if (!pendingLevelUp) return;
     const { data, xpCost } = pendingLevelUp;
     const isStatistic = Array.isArray((data as Statistic).skills);
-    setAvailableXP(prev => prev - xpCost);
-    setStatisticsData(prevData => {
-      const updated = prevData.map(stat => {
-        if (isStatistic && stat === data) {
-          return { ...stat, level: stat.level + 1 };
-        }
-        if (!isStatistic) {
-          const updatedSkills = stat.skills.map(skill => {
-            if (skill === data) {
-              return { ...skill, level: skill.level + 1 };
+    
+    try {
+      let result;
+      if (isStatistic) {
+        result = await updateStatistic(userId, data.id, { level: data.level + 1 });
+      } else {
+        result = await updateSkill(data.id, { level: data.level + 1 });
+      }
+
+      if (result.success) {
+        setAvailableXP(prev => prev - xpCost);
+        setStatisticsData(prevData => {
+          const updated = prevData.map(stat => {
+            if (isStatistic && stat.id === data.id) {
+              return { ...stat, level: stat.level + 1 };
             }
-            return skill;
+            if (!isStatistic) {
+              const updatedSkills = stat.skills.map(skill => {
+                if (skill.id === data.id) {
+                  return { ...skill, level: skill.level + 1 };
+                }
+                return skill;
+              });
+              return { ...stat, skills: updatedSkills };
+            }
+            return stat;
           });
-          return { ...stat, skills: updatedSkills };
-        }
-        return stat;
-      });
-      return recalculateTotals(updated);
-    });
+          return recalculateTotals(updated);
+        });
+        toast.success("Level up successful");
+      } else {
+        toast.error("Failed to level up");
+      }
+    } catch (error: unknown) {
+      console.error('Error leveling up:', error);
+      toast.error("An error occurred while leveling up");
+    }
+    
     setShowLevelUpDialog(false);
     setPendingLevelUp(null);
   };
@@ -188,6 +263,29 @@ export default function Statistics() {
     setShowLevelUpDialog(false);
     setPendingLevelUp(null);
   };
+
+  const handleInitialize = async () => {
+    try {
+      const result = await initializeStatistics(userId);
+      if (result.success) {
+        toast.success("Statistics initialized successfully");
+        // Refresh the data
+        const fetchResult = await getStatistics(userId);
+        if (fetchResult.success && fetchResult.data) {
+          setStatisticsData(fetchResult.data);
+        }
+      } else {
+        toast.error(result.error || "Failed to initialize statistics");
+      }
+    } catch (error: unknown) {
+      console.error('Error initializing statistics:', error);
+      toast.error("An error occurred while initializing statistics");
+    }
+  };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="space-y-4">
@@ -284,6 +382,13 @@ export default function Statistics() {
           </div>
         </div>
         <div className="flex items-center gap-2 ml-4">
+          <Button
+            variant="outline"
+            onClick={handleInitialize}
+            className="mr-2"
+          >
+            Init
+          </Button>
           <Switch
             id="edit-mode"
             checked={isEditable}

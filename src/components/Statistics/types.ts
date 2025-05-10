@@ -1,16 +1,20 @@
-export type Statistic = {
-    name: string;
-    shortName: string;
-    description: string;
-    level: number;
-    skills: Skills[];
-  }
-  
-export type Skills = {
-    name: string;
-    costPerLevel: number;
-    level: number;
-    base: number;
-    bonus: number;
-    total: number;
-  };
+export interface Skills {
+  id: string;
+  statisticId: string;
+  name: string;
+  costPerLevel: number;
+  level: number;
+  base: number;
+  bonus: number;
+  total: number;
+}
+
+export interface Statistic {
+  id: string;
+  userId: string;
+  name: string;
+  shortName: string;
+  description: string;
+  level: number;
+  skills: Skills[];
+}
