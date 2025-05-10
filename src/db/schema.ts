@@ -14,6 +14,7 @@ export const statisticsTable = pgTable("statistics", {
   shortName: text().notNull(),
   description: text().notNull(),
   level: integer().notNull().default(0),
+  slug: text().notNull(),
 });
 
 export const skillsTable = pgTable("skills", {
@@ -25,4 +26,5 @@ export const skillsTable = pgTable("skills", {
   base: integer().notNull().default(0),
   bonus: integer().notNull().default(0),
   total: integer().notNull().default(0),
+  slug: text().notNull(),
 });

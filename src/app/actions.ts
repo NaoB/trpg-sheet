@@ -88,6 +88,11 @@ export async function initializeStatistics(userId: string) {
       return { success: false, error: 'Statistics already exist for this user' };
     }
 
+    // Helper function to generate slug
+    const generateSlug = (name: string) => {
+      return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    };
+
     // Create statistics with their skills
     const statistics = [
       {
@@ -215,6 +220,8 @@ export async function initializeStatistics(userId: string) {
     // Insert statistics and their skills
     for (const stat of statistics) {
       const statId = uuidv4();
+      const statSlug = generateSlug(stat.name);
+      
       await db.insert(statisticsTable).values({
         id: statId,
         userId,
@@ -222,10 +229,12 @@ export async function initializeStatistics(userId: string) {
         shortName: stat.shortName,
         description: stat.description,
         level: stat.level,
+        slug: statSlug,
       });
 
       // Insert skills for this statistic
       for (const skill of stat.skills) {
+        const skillSlug = generateSlug(skill.name);
         await db.insert(skillsTable).values({
           id: uuidv4(),
           statisticId: statId,
@@ -235,6 +244,7 @@ export async function initializeStatistics(userId: string) {
           base: skill.base,
           bonus: skill.bonus,
           total: skill.total,
+          slug: skillSlug,
         });
       }
     }

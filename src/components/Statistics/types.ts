@@ -7,6 +7,7 @@ export interface Skills {
   base: number;
   bonus: number;
   total: number;
+  slug: string;
 }
 
 export interface Statistic {
@@ -17,4 +18,5 @@ export interface Statistic {
   description: string;
   level: number;
   skills: Skills[];
+  slug: string;
 }
