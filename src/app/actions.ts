@@ -1,6 +1,5 @@
 'use server';
 
-import { Statistic } from '@/components/Statistics/types';
 import { db } from '@/db';
 import { statisticsTable, skillsTable, usersTable } from '@/db/schema';
 import { eq, inArray } from 'drizzle-orm';
@@ -395,7 +394,7 @@ export async function createStatistic(userId: string, data: {
       formulaValue: data.formulaValue,
     }).returning();
 
-    return { success: true, data: result[0] as Statistic };
+    return { success: true, data: result[0] as typeof result extends (infer T)[] ? T : never };
   } catch (error) {
     console.error('Error creating statistic:', error);
     return { success: false, error: 'Failed to create statistic' };
