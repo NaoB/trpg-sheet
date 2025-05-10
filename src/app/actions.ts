@@ -303,4 +303,28 @@ export async function updateUserXp(userId: string, xp: number) {
     console.error('Error updating user XP:', error);
     return { success: false, error: 'Failed to update user XP' };
   }
+}
+
+export async function resetAllSkills(userId: string) {
+  try {
+    // Get all statistics for the user
+    const statistics = await db
+      .select()
+      .from(statisticsTable)
+      .where(eq(statisticsTable.userId, userId));
+
+    const statisticIds = statistics.map((stat) => stat.id);
+
+    // Reset all skills to level 0 in a single update
+    const result = await db
+      .update(skillsTable)
+      .set({ level: 0 })
+      .where(inArray(skillsTable.statisticId, statisticIds))
+      .returning();
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error resetting skills:', error);
+    return { success: false, error: 'Failed to reset skills' };
+  }
 } 

@@ -9,7 +9,7 @@ import {
   createColumnHelper,
   ExpandedState,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronRight, Search, MoreHorizontal, BicepsFlexedIcon, Plus, Minus } from "lucide-react";
+import { ChevronDown, ChevronRight, Search, MoreHorizontal, BicepsFlexedIcon, Plus, Minus, RotateCcw } from "lucide-react";
 import { AlertCircle } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
@@ -42,7 +42,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "../ui/alert-dialog";
-import { getStatistics, updateStatistic, updateSkill, getUser, updateUserXp } from "@/app/actions";
+import { getStatistics, updateStatistic, updateSkill, getUser, updateUserXp, resetAllSkills } from "@/app/actions";
 import { toast } from "sonner";
 import { useParams } from "next/navigation";
 
@@ -65,6 +65,8 @@ export default function Statistics() {
   const [levelUpError, setLevelUpError] = useState<string | null>(null);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [resetXpGain, setResetXpGain] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -285,6 +287,56 @@ export default function Statistics() {
     setPendingLevelUp(null);
   };
 
+  const handleReset = () => {
+    let totalXpGain = 0;
+    
+    // Calculate XP gain from skills only
+    statisticsData.forEach(stat => {
+      stat.skills.forEach(skill => {
+        if (skill.level > 0) {
+          // Sum of all levels from 1 to current level, multiplied by costPerLevel
+          const costPerLevel = skill.costPerLevel || 1;
+          totalXpGain += (skill.level * (skill.level + 1)) / 2 * costPerLevel;
+        }
+      });
+    });
+    
+    setResetXpGain(totalXpGain);
+    setShowResetDialog(true);
+  };
+
+  const confirmReset = async () => {
+    try {
+      const [resetResult, xpResult] = await Promise.all([
+        resetAllSkills(userId),
+        updateUserXp(userId, availableXP + resetXpGain)
+      ]);
+
+      if (resetResult.success && xpResult.success) {
+        setAvailableXP(availableXP + resetXpGain);
+        setStatisticsData(prevData => {
+          const updated = prevData.map(stat => ({
+            ...stat,
+            skills: stat.skills.map(skill => ({ ...skill, level: 0 }))
+          }));
+          return recalculateTotals(updated);
+        });
+        toast.success("Reset successful");
+      } else {
+        toast.error("Failed to reset levels");
+      }
+    } catch (error: unknown) {
+      console.error('Error resetting levels:', error);
+      toast.error("An error occurred while resetting levels");
+    }
+    
+    setShowResetDialog(false);
+  };
+
+  const cancelReset = () => {
+    setShowResetDialog(false);
+  };
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
@@ -331,55 +383,83 @@ export default function Statistics() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Reset</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-2">
+                <p>This will reset all skills to level 0.</p>
+                <p>You will gain {resetXpGain} XP from this reset.</p>
+                <p>Are you sure you want to proceed?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelReset}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmReset}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="w-full space-y-4 sm:space-y-0 sm:flex sm:items-center sm:gap-4">
           <div className="flex items-center justify-between sm:justify-start gap-4">
-            {isEditable ? (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Badge variant="secondary" className="text-sm cursor-pointer hover:bg-secondary/80">
-                    Available XP: {availableXP}
-                  </Badge>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Manage XP</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <p className="text-sm text-muted-foreground">
-                      Enter the amount of XP you want to add or subtract, then click the plus or minus button.
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={xpAmount}
-                        onChange={(e) => setXpAmount(e.target.value)}
-                        className="w-24"
-                        min="1"
-                      />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleXpChange(Number(xpAmount))}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleXpChange(-Number(xpAmount))}
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
+            <div className="flex items-center gap-2">
+              {isEditable ? (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Badge variant="secondary" className="text-sm cursor-pointer hover:bg-secondary/80">
+                      Available XP: {availableXP}
+                    </Badge>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Manage XP</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <p className="text-sm text-muted-foreground">
+                        Enter the amount of XP you want to add or subtract, then click the plus or minus button.
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={xpAmount}
+                          onChange={(e) => setXpAmount(e.target.value)}
+                          className="w-24"
+                          min="1"
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleXpChange(Number(xpAmount))}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleXpChange(-Number(xpAmount))}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            ) : (
-              <Badge variant="secondary" className="text-sm">
-                Available XP: {availableXP}
-              </Badge>
-            )}
+                  </DialogContent>
+                </Dialog>
+              ) : (
+                <Badge variant="secondary" className="text-sm">
+                  Available XP: {availableXP}
+                </Badge>
+              )}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleReset}
+                className="h-6 w-6"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            </div>
             <div className="flex items-center gap-2">
               <Switch
                 id="edit-mode"
