@@ -4,7 +4,7 @@ import { createUser } from './actions';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { LogIn } from 'lucide-react';
+import { LogIn, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface SavedUser {
@@ -71,6 +71,14 @@ export default function Home() {
     router.push(`/player/${userId}`);
   };
 
+  const handleDeleteUser = (userId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent triggering the parent button click
+    const updatedUsers = savedUsers.filter(u => u.id !== userId);
+    localStorage.setItem('savedUsers', JSON.stringify(updatedUsers));
+    setSavedUsers(updatedUsers);
+    toast.success('Account removed from recent list');
+  };
+
   return (
     <div
       className="min-h-screen flex items-center justify-center bg-gradient-to-br"
@@ -96,13 +104,23 @@ export default function Home() {
                 <Button
                   key={user.id}
                   variant="outline"
-                  className="w-full justify-start"
+                  className="w-full justify-start group"
                   onClick={() => handleUserSelect(user.id)}
                 >
                   <LogIn className="mr-2 h-4 w-4" />
                   <div className="flex items-center justify-between w-full">
                     <span className="font-medium">{user.name}</span>
-                    <span className="text-xs text-stone-500">{user.email}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-stone-500">{user.email}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => handleDeleteUser(user.id, e)}
+                      >
+                        <Trash2 className="h-4 w-4 text-stone-500 hover:text-red-500" />
+                      </Button>
+                    </div>
                   </div>
                 </Button>
               ))}
