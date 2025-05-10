@@ -394,7 +394,8 @@ export async function createStatistic(userId: string, data: {
       formulaValue: data.formulaValue,
     }).returning();
 
-    return { success: true, data: result[0] as typeof result extends (infer T)[] ? T : never };
+    // @ts-expect-error - result[0] is not typed
+    return { success: true, data: result[0] };
   } catch (error) {
     console.error('Error creating statistic:', error);
     return { success: false, error: 'Failed to create statistic' };
