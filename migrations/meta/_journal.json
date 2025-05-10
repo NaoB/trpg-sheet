@@ -8,6 +8,13 @@
       "when": 1746892839075,
       "tag": "0000_create_users_table",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1746893101223,
+      "tag": "0001_create_statistics_and_skills_tables",
+      "breakpoints": true
     }
   ]
 }
