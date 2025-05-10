@@ -394,7 +394,7 @@ export async function createStatistic(userId: string, data: {
       formulaValue: data.formulaValue,
     }).returning();
 
-    return { success: true, data: result[0] };
+    return { success: true, data: result[0] as typeof statisticsTable.$inferSelect };
   } catch (error) {
     console.error('Error creating statistic:', error);
     return { success: false, error: 'Failed to create statistic' };
