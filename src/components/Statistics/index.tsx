@@ -10,6 +10,7 @@ import {
   ExpandedState,
 } from "@tanstack/react-table";
 import { ChevronDown, ChevronRight, Search, MoreHorizontal, BicepsFlexedIcon, Plus, Minus } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 import { Skills, Statistic } from "./types";
@@ -64,14 +65,29 @@ export default function Statistics() {
     setXpAmount("0");
   };
 
+  // Helper to recalculate totals
+  function recalculateTotals(stats: Statistic[]): Statistic[] {
+    return stats.map(stat => {
+      const newStat = { ...stat };
+      if (Array.isArray(stat.skills)) {
+        newStat.skills = stat.skills.map(skill => {
+          if (typeof skill.base === 'number' && typeof skill.level === 'number' && typeof skill.bonus === 'number') {
+            return { ...skill, total: skill.base + skill.level + skill.bonus };
+          }
+          return skill;
+        });
+      }
+      return newStat;
+    });
+  }
+
   const handleDataEdit = (data: Statistic | Skills, field: string, value: number) => {
     setStatisticsData(prevData => {
-      return prevData.map(stat => {
+      const updated = prevData.map(stat => {
         // Check if this is the main statistic row
         if (stat === data) {
           return { ...stat, [field]: value };
         }
-        
         // Check if this is a skill row
         const updatedSkills = stat.skills.map(skill => {
           if (skill === data) {
@@ -79,9 +95,9 @@ export default function Statistics() {
           }
           return skill;
         });
-        
         return { ...stat, skills: updatedSkills };
       });
+      return recalculateTotals(updated);
     });
   };
   
@@ -114,30 +130,28 @@ export default function Statistics() {
   const handleLevelUp = (data: Statistic | Skills) => {
     if (typeof data.level !== "number") return;
     const isStatistic = Array.isArray((data as Statistic).skills);
-    let xpCost = 0;
-    let newLevel = data.level + 1;
-    let finalXP = availableXP;
+    const newLevel = data.level + 1;
+    const xpCost = isStatistic
+      ? data.level * 10
+      : (data.level * ("costPerLevel" in data ? data.costPerLevel : 1));
+    const finalXP = availableXP - xpCost;
     if (isStatistic) {
       if (data.level >= 10) {
         setLevelUpError("Statistic cannot be leveled up beyond level 10.");
         setShowErrorDialog(true);
         return;
       }
-      xpCost = data.level * 10;
       if (availableXP < xpCost) {
         setLevelUpError(`Not enough XP. Required: ${xpCost}, Available: ${availableXP}`);
         setShowErrorDialog(true);
         return;
       }
-      finalXP = availableXP - xpCost;
     } else {
-      xpCost = data.level;
       if (availableXP < xpCost) {
         setLevelUpError(`Not enough XP. Required: ${xpCost}, Available: ${availableXP}`);
         setShowErrorDialog(true);
         return;
       }
-      finalXP = availableXP - xpCost;
     }
     setPendingLevelUp({ data, xpCost, newLevel, finalXP });
     setShowLevelUpDialog(true);
@@ -149,7 +163,7 @@ export default function Statistics() {
     const isStatistic = Array.isArray((data as Statistic).skills);
     setAvailableXP(prev => prev - xpCost);
     setStatisticsData(prevData => {
-      return prevData.map(stat => {
+      const updated = prevData.map(stat => {
         if (isStatistic && stat === data) {
           return { ...stat, level: stat.level + 1 };
         }
@@ -164,6 +178,7 @@ export default function Statistics() {
         }
         return stat;
       });
+      return recalculateTotals(updated);
     });
     setShowLevelUpDialog(false);
     setPendingLevelUp(null);
@@ -350,7 +365,21 @@ function StatisticsTable({ data, searchQuery, onDataEdit, isEditable, onLevelUp 
               <TooltipContent className="max-w-72">{(row.original as Statistic).description}</TooltipContent>
             </Tooltip>
           ) : (
-            <span>{row.getValue("name")}</span>
+            <span className="flex items-center gap-1">
+              {row.getValue("name")}
+              {"costPerLevel" in row.original && row.original.costPerLevel > 1 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0} aria-label="This skill costs more XP per level" className="ml-1 text-yellow-600">
+                      <AlertCircle className="h-4 w-4" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    This skill costs {row.original.costPerLevel} XP per level.
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </span>
           )}
         </div>
       ),
