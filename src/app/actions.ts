@@ -394,7 +394,6 @@ export async function createStatistic(userId: string, data: {
       formulaValue: data.formulaValue,
     }).returning();
 
-    // @ts-expect-error - result[0] is not typed
     return { success: true, data: result[0] };
   } catch (error) {
     console.error('Error creating statistic:', error);
