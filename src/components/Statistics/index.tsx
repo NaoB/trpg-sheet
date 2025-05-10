@@ -333,46 +333,52 @@ export default function Statistics() {
       </AlertDialog>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 flex-1">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Badge variant="secondary" className="text-sm cursor-pointer hover:bg-secondary/80">
-                Available XP: {availableXP}
-              </Badge>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Manage XP</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <p className="text-sm text-muted-foreground">
-                  Enter the amount of XP you want to add or subtract, then click the plus or minus button.
-                </p>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    value={xpAmount}
-                    onChange={(e) => setXpAmount(e.target.value)}
-                    className="w-24"
-                    min="1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleXpChange(Number(xpAmount))}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleXpChange(-Number(xpAmount))}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
+          {isEditable ? (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Badge variant="secondary" className="text-sm cursor-pointer hover:bg-secondary/80">
+                  Available XP: {availableXP}
+                </Badge>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Manage XP</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <p className="text-sm text-muted-foreground">
+                    Enter the amount of XP you want to add or subtract, then click the plus or minus button.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={xpAmount}
+                      onChange={(e) => setXpAmount(e.target.value)}
+                      className="w-24"
+                      min="1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleXpChange(Number(xpAmount))}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleXpChange(-Number(xpAmount))}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <Badge variant="secondary" className="text-sm">
+              Available XP: {availableXP}
+            </Badge>
+          )}
           <div className="relative flex-1">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input

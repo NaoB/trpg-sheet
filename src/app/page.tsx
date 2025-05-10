@@ -72,7 +72,12 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50">
+    <div
+      className="min-h-screen flex items-center justify-center bg-gradient-to-br"
+      style={{
+        background: 'linear-gradient(135deg, #22332a 0%, #3a4a5a 40%, #6b6e73 80%, #bfa76a 100%)'
+      }}
+    >
       <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-stone-900">
