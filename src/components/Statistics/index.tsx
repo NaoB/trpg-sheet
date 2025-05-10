@@ -42,14 +42,13 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "../ui/alert-dialog";
-// import { useParams } from "next/navigation";
-import { getStatistics, updateStatistic, updateSkill, initializeStatistics } from "@/app/actions";
+import { getStatistics, updateStatistic, updateSkill, getUser, updateUserXp } from "@/app/actions";
 import { toast } from "sonner";
+import { useParams } from "next/navigation";
 
 export default function Statistics() {
-  // const params = useParams();
-  // const userId = params.userId as string;
-  const userId = 'dc90a488-47a1-4b84-af21-afa06d5405ef'
+  const params = useParams();
+  const userId = params.playerId as string;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statisticsData, setStatisticsData] = useState<Statistic[]>([]);
@@ -70,10 +69,14 @@ export default function Statistics() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const result = await getStatistics(userId);
-        if (result.success && result.data) {
+        const [statsResult, userResult] = await Promise.all([
+          getStatistics(userId),
+          getUser(userId)
+        ]);
+
+        if (statsResult.success && statsResult.data) {
           // Sort statistics by name
-          const sortedStatistics = result.data.sort((a, b) => a.name.localeCompare(b.name));
+          const sortedStatistics = statsResult.data.sort((a, b) => a.name.localeCompare(b.name));
           
           // Sort skills within each statistic
           const statisticsWithSortedSkills = sortedStatistics.map(stat => ({
@@ -85,9 +88,15 @@ export default function Statistics() {
         } else {
           toast.error("Failed to fetch statistics");
         }
+
+        if (userResult.success && userResult.data) {
+          setAvailableXP(userResult.data.xp);
+        } else {
+          toast.error("Failed to fetch user data");
+        }
       } catch (error: unknown) {
-        console.error('Error fetching statistics:', error);
-        toast.error("An error occurred while fetching statistics");
+        console.error('Error fetching data:', error);
+        toast.error("An error occurred while fetching data");
       } finally {
         setIsLoading(false);
       }
@@ -96,9 +105,21 @@ export default function Statistics() {
     fetchData();
   }, [userId]);
   
-  const handleXpChange = (amount: number) => {
-    setAvailableXP(prev => Math.max(0, prev + amount));
-    setXpAmount("0");
+  const handleXpChange = async (amount: number) => {
+    const newXp = Math.max(0, availableXP + amount);
+    try {
+      const result = await updateUserXp(userId, newXp);
+      if (result.success) {
+        setAvailableXP(newXp);
+        setXpAmount("0");
+        toast.success("XP updated successfully");
+      } else {
+        toast.error("Failed to update XP");
+      }
+    } catch (error: unknown) {
+      console.error('Error updating XP:', error);
+      toast.error("An error occurred while updating XP");
+    }
   };
 
   // Helper to recalculate totals
@@ -215,19 +236,19 @@ export default function Statistics() {
 
   const confirmLevelUp = async () => {
     if (!pendingLevelUp) return;
-    const { data, xpCost } = pendingLevelUp;
+    const { data, finalXP } = pendingLevelUp;
     const isStatistic = Array.isArray((data as Statistic).skills);
     
     try {
-      let result;
-      if (isStatistic) {
-        result = await updateStatistic(userId, data.id, { level: data.level + 1 });
-      } else {
-        result = await updateSkill(data.id, { level: data.level + 1 });
-      }
+      const [updateResult, xpResult] = await Promise.all([
+        isStatistic
+          ? updateStatistic(userId, data.id, { level: data.level + 1 })
+          : updateSkill(data.id, { level: data.level + 1 }),
+        updateUserXp(userId, finalXP)
+      ]);
 
-      if (result.success) {
-        setAvailableXP(prev => prev - xpCost);
+      if (updateResult.success && xpResult.success) {
+        setAvailableXP(finalXP);
         setStatisticsData(prevData => {
           const updated = prevData.map(stat => {
             if (isStatistic && stat.id === data.id) {
@@ -262,25 +283,6 @@ export default function Statistics() {
   const cancelLevelUp = () => {
     setShowLevelUpDialog(false);
     setPendingLevelUp(null);
-  };
-
-  const handleInitialize = async () => {
-    try {
-      const result = await initializeStatistics(userId);
-      if (result.success) {
-        toast.success("Statistics initialized successfully");
-        // Refresh the data
-        const fetchResult = await getStatistics(userId);
-        if (fetchResult.success && fetchResult.data) {
-          setStatisticsData(fetchResult.data);
-        }
-      } else {
-        toast.error(result.error || "Failed to initialize statistics");
-      }
-    } catch (error: unknown) {
-      console.error('Error initializing statistics:', error);
-      toast.error("An error occurred while initializing statistics");
-    }
   };
 
   if (isLoading) {
@@ -382,13 +384,6 @@ export default function Statistics() {
           </div>
         </div>
         <div className="flex items-center gap-2 ml-4">
-          <Button
-            variant="outline"
-            onClick={handleInitialize}
-            className="mr-2"
-          >
-            Init
-          </Button>
           <Switch
             id="edit-mode"
             checked={isEditable}

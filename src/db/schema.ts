@@ -4,6 +4,7 @@ export const usersTable = pgTable("users", {
   id: uuid().primaryKey(),
   name: text().notNull(),
   email: text().notNull().unique(),
+  xp: integer().notNull().default(0),
 });
 
 export const statisticsTable = pgTable("statistics", {

@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/db';
-import { statisticsTable, skillsTable } from '@/db/schema';
+import { statisticsTable, skillsTable, usersTable } from '@/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -243,5 +243,54 @@ export async function initializeStatistics(userId: string) {
   } catch (error) {
     console.error('Error initializing statistics:', error);
     return { success: false, error: 'Failed to initialize statistics' };
+  }
+}
+
+export async function createUser(data: { name: string; email: string }) {
+  try {
+    const userId = uuidv4();
+    await db.insert(usersTable).values({
+      id: userId,
+      name: data.name,
+      email: data.email,
+    });
+
+    // Initialize statistics for the new user
+    await initializeStatistics(userId);
+
+    return { success: true, userId };
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return { success: false, error: 'Failed to create user' };
+  }
+}
+
+export async function getUser(userId: string) {
+  try {
+    const result = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+
+    return { success: true, data: result[0] };
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    return { success: false, error: 'Failed to fetch user' };
+  }
+}
+
+export async function updateUserXp(userId: string, xp: number) {
+  try {
+    const result = await db
+      .update(usersTable)
+      .set({ xp })
+      .where(eq(usersTable.id, userId))
+      .returning();
+
+    return { success: true, data: result[0] };
+  } catch (error) {
+    console.error('Error updating user XP:', error);
+    return { success: false, error: 'Failed to update user XP' };
   }
 } 

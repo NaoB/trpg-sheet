@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "xp" integer DEFAULT 100 NOT NULL;
