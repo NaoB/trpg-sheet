@@ -55,7 +55,7 @@ export default function Home() {
       if (result.success && result.userId) {
         saveUser({ id: result.userId, name, email });
         toast.success('Account created successfully!');
-        router.push(`/player/${result.userId}`);
+        router.push(`/player/${result.userId}/skills`);
       } else {
         toast.error(result.error || 'Failed to create account');
       }
@@ -68,7 +68,7 @@ export default function Home() {
   }
 
   const handleUserSelect = (userId: string) => {
-    router.push(`/player/${userId}`);
+    router.push(`/player/${userId}/skills`);
   };
 
   const handleDeleteUser = (userId: string, event: React.MouseEvent) => {
