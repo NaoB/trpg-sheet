@@ -1,6 +1,7 @@
 import 'dotenv/config';
-import { drizzle } from 'drizzle-orm/bun-sqlite';
-import { Database } from 'bun:sqlite';
 
-const sqlite = new Database(process.env.DB_FILE_NAME!);
-export const db = drizzle(sqlite);
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
+
+const sql = neon(process.env.DATABASE_URL!);
+export const db = drizzle(sql);
