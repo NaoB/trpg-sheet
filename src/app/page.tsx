@@ -5,7 +5,7 @@ export default function Home() {
     <div className="min-h-screen">
       <div className="grid grid-cols-1 md:grid-cols-2 h-screen">
         {/* Left Section - Skills */}
-        <div className="bg-blue-200 p-4 h-full overflow-y-auto">
+        <div className="p-4 h-full overflow-y-auto">
           <h2 className="text-2xl font-bold mb-4">Skills</h2>
           <Statistics />
         </div>

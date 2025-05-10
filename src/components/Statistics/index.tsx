@@ -15,17 +15,42 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 import { Skills, Statistic } from "./types";
 import { data } from "./data";
 import { Input } from "../ui/input";
+import { Switch } from "../ui/switch";
+import { Label } from "../ui/label";
 
 export default function Statistics() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [statisticsData, setStatisticsData] = useState(data);
+  const [isEditable, setIsEditable] = useState(false);
+  
+  const handleDataEdit = (data: Statistic | Skills, field: string, value: number) => {
+    setStatisticsData(prevData => {
+      return prevData.map(stat => {
+        // Check if this is the main statistic row
+        if (stat === data) {
+          return { ...stat, [field]: value };
+        }
+        
+        // Check if this is a skill row
+        const updatedSkills = stat.skills.map(skill => {
+          if (skill === data) {
+            return { ...skill, [field]: value };
+          }
+          return skill;
+        });
+        
+        return { ...stat, skills: updatedSkills };
+      });
+    });
+  };
   
   const filteredData = useMemo(() => {
-    if (!searchQuery.trim()) return data;
+    if (!searchQuery.trim()) return statisticsData;
     
     const query = searchQuery.trim();
     const isUpperCase = query === query.toUpperCase() && query !== query.toLowerCase();
     
-    return data.filter(stat => {
+    return statisticsData.filter(stat => {
       if (isUpperCase) {
         // For uppercase queries, only search in shortnames
         return stat.shortName.toLowerCase().includes(query.toLowerCase());
@@ -42,20 +67,35 @@ export default function Statistics() {
       
       return mainStatMatch || skillMatch;
     });
-  }, [searchQuery]);
+  }, [searchQuery, statisticsData]);
 
   return (
     <div className="space-y-4">
-      <div className="relative">
-        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search statistics or skills... (uppercase for shortname only)"
-          value={searchQuery}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-          className="pl-8"
-        />
+      <div className="flex items-center justify-between">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search statistics or skills... (uppercase for shortname only)"
+            value={searchQuery}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <div className="flex items-center gap-2 ml-4">
+          <Switch
+            id="edit-mode"
+            checked={isEditable}
+            onCheckedChange={setIsEditable}
+          />
+          <Label htmlFor="edit-mode">Edit Mode</Label>
+        </div>
       </div>
-      <StatisticsTable data={filteredData} searchQuery={searchQuery} />
+      <StatisticsTable 
+        data={filteredData} 
+        searchQuery={searchQuery} 
+        onDataEdit={handleDataEdit}
+        isEditable={isEditable}
+      />
     </div>
   );
 }
@@ -63,13 +103,39 @@ export default function Statistics() {
 interface StatisticsTableProps {
   data: Statistic[];
   searchQuery: string;
+  onDataEdit: (data: Statistic | Skills, field: string, value: number) => void;
+  isEditable: boolean;
 }
 
-function StatisticsTable({ data, searchQuery }: StatisticsTableProps) {
+function StatisticsTable({ data, searchQuery, onDataEdit, isEditable }: StatisticsTableProps) {
   const [expanded, setExpanded] = useState<ExpandedState>({});
+  const [editingCell, setEditingCell] = useState<{ data: Statistic | Skills; field: string } | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
   
   const columnHelper = createColumnHelper<Statistic | Skills>();
   
+  const handleCellClick = (data: Statistic | Skills, field: string, value: number) => {
+    if (!isEditable) return;
+    setEditingCell({ data, field });
+    setEditValue(value.toString());
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      const numValue = Number(editValue);
+      if (!isNaN(numValue)) {
+        onDataEdit(editingCell!.data, editingCell!.field, numValue);
+      }
+      setEditingCell(null);
+    } else if (e.key === "Escape") {
+      setEditingCell(null);
+    }
+  };
+
+  const handleEditBlur = () => {
+    setEditingCell(null);
+  };
+
   const columns = [
     columnHelper.accessor("name", {
       header: "Name",
@@ -102,19 +168,101 @@ function StatisticsTable({ data, searchQuery }: StatisticsTableProps) {
     }),
     columnHelper.accessor("level", {
       header: "Level",
-      cell: (info) => info.getValue(),
+      cell: (info) => {
+        const isEditing = editingCell?.data === info.row.original && editingCell?.field === "level";
+        const value = info.getValue() as number;
+        
+        if (isEditing) {
+          return (
+            <input
+              type="number"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleEditKeyDown}
+              onBlur={handleEditBlur}
+              className="w-16 px-1 py-0.5 border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+              autoFocus
+            />
+          );
+        }
+        
+        return (
+          <div
+            onClick={() => handleCellClick(info.row.original, "level", value)}
+            className={`${isEditable ? "cursor-pointer hover:bg-gray-50" : ""} px-2 py-1 rounded`}
+          >
+            {value}
+          </div>
+        );
+      },
     }),
     columnHelper.accessor("base", {
       header: "Base",
-      cell: (info) => "base" in info.row.original ? info.getValue() : "",
+      cell: (info) => {
+        if (!("base" in info.row.original)) return "-";
+        
+        const isEditing = editingCell?.data === info.row.original && editingCell?.field === "base";
+        const value = info.getValue() as number;
+        
+        if (isEditing) {
+          return (
+            <input
+              type="number"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleEditKeyDown}
+              onBlur={handleEditBlur}
+              className="w-16 px-1 py-0.5 border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+              autoFocus
+            />
+          );
+        }
+        
+        return (
+          <div
+            onClick={() => handleCellClick(info.row.original, "base", value)}
+            className={`${isEditable ? "cursor-pointer hover:bg-gray-50" : ""} px-2 py-1 rounded`}
+          >
+            {value}
+          </div>
+        );
+      },
     }),
     columnHelper.accessor("bonus", {
       header: "Bonus",
-      cell: (info) => "bonus" in info.row.original ? info.getValue() : "",
+      cell: (info) => {
+        if (!("bonus" in info.row.original)) return "-";
+        
+        const isEditing = editingCell?.data === info.row.original && editingCell?.field === "bonus";
+        const value = info.getValue() as number;
+        
+        if (isEditing) {
+          return (
+            <input
+              type="number"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleEditKeyDown}
+              onBlur={handleEditBlur}
+              className="w-16 px-1 py-0.5 border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+              autoFocus
+            />
+          );
+        }
+        
+        return (
+          <div
+            onClick={() => handleCellClick(info.row.original, "bonus", value)}
+            className={`${isEditable ? "cursor-pointer hover:bg-gray-50" : ""} px-2 py-1 rounded`}
+          >
+            {value}
+          </div>
+        );
+      },
     }),
     columnHelper.accessor("total", {
       header: "Total",
-      cell: (info) => "total" in info.row.original ? info.getValue() : "",
+      cell: (info) => "total" in info.row.original ? info.getValue() : info.row.original.level,
     }),
   ];
 
