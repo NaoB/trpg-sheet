@@ -19,4 +19,7 @@ export interface Statistic {
   level: number;
   skills: Skills[];
   slug: string;
+  formulaType: string | null;
+  formulaStatisticId: string | null;
+  formulaValue: number | null;
 }

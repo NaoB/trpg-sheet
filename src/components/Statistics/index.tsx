@@ -79,6 +79,11 @@ export default function Statistics() {
     name: string;
     shortName: string;
     description: string;
+    formula?: {
+      type: 'multiply' | 'divide' | 'add' | 'subtract';
+      statisticId: string;
+      value: number;
+    };
   }>({
     name: "",
     shortName: "",
@@ -183,6 +188,33 @@ export default function Statistics() {
                     ...skill,
                     base: value,
                     total: value + skill.level + skill.bonus
+                  }))
+                };
+              }
+              // Update any statistics that depend on this one
+              if (stat.formulaType && stat.formulaStatisticId === data.id) {
+                let newLevel = value; // Use the new value directly
+                switch (stat.formulaType) {
+                  case 'multiply':
+                    newLevel = value * (stat.formulaValue || 1);
+                    break;
+                  case 'divide':
+                    newLevel = Math.floor(value / (stat.formulaValue || 1));
+                    break;
+                  case 'add':
+                    newLevel = value + (stat.formulaValue || 0);
+                    break;
+                  case 'subtract':
+                    newLevel = value - (stat.formulaValue || 0);
+                    break;
+                }
+                return {
+                  ...stat,
+                  level: newLevel,
+                  skills: stat.skills.map(skill => ({
+                    ...skill,
+                    base: newLevel,
+                    total: newLevel + skill.level + skill.bonus
                   }))
                 };
               }
@@ -384,6 +416,14 @@ export default function Statistics() {
     setShowResetDialog(false);
   };
 
+  const handleStatDialogSubmit = () => {
+    if (statFormData.id) {
+      handleEditStatistic();
+    } else {
+      handleCreateStatistic();
+    }
+  };
+
   const handleCreateStatistic = async () => {
     if (!statFormData.name.trim() || !statFormData.shortName.trim() || !statFormData.description.trim()) {
       toast.error("Please fill in all fields");
@@ -395,6 +435,9 @@ export default function Statistics() {
         name: statFormData.name.trim(),
         shortName: statFormData.shortName.trim(),
         description: statFormData.description.trim(),
+        formulaType: statFormData.formula?.type,
+        formulaStatisticId: statFormData.formula?.statisticId,
+        formulaValue: statFormData.formula?.value,
       });
 
       if (result.success && result.data) {
@@ -425,6 +468,9 @@ export default function Statistics() {
         name: statFormData.name.trim(),
         shortName: statFormData.shortName.trim(),
         description: statFormData.description.trim(),
+        formulaType: statFormData.formula?.type,
+        formulaStatisticId: statFormData.formula?.statisticId,
+        formulaValue: statFormData.formula?.value,
       });
 
       if (result.success && result.data) {
@@ -448,20 +494,17 @@ export default function Statistics() {
     }
   };
 
-  const handleStatDialogSubmit = () => {
-    if (statFormData.id) {
-      handleEditStatistic();
-    } else {
-      handleCreateStatistic();
-    }
-  };
-
   const openEditDialog = (statistic: Statistic) => {
     setStatFormData({
       id: statistic.id,
       name: statistic.name,
       shortName: statistic.shortName,
       description: statistic.description,
+      formula: statistic.formulaType ? {
+        type: statistic.formulaType as 'multiply' | 'divide' | 'add' | 'subtract',
+        statisticId: statistic.formulaStatisticId || '',
+        value: statistic.formulaValue || 1
+      } : undefined
     });
     setShowStatDialog(true);
   };
@@ -605,6 +648,70 @@ export default function Statistics() {
                 placeholder="Enter statistic description"
               />
             </div>
+            <div className="space-y-2">
+              <Label>Formula (Optional)</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={statFormData.formula?.type || ''}
+                  onChange={(e) => {
+                    const type = e.target.value as 'multiply' | 'divide' | 'add' | 'subtract' | '';
+                    setStatFormData(prev => ({
+                      ...prev,
+                      formula: type ? {
+                        type,
+                        statisticId: prev.formula?.statisticId || '',
+                        value: prev.formula?.value || 1
+                      } : undefined
+                    }));
+                  }}
+                >
+                  <option value="">No Formula</option>
+                  <option value="multiply">Multiply</option>
+                  <option value="divide">Divide</option>
+                  <option value="add">Add</option>
+                  <option value="subtract">Subtract</option>
+                </select>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={statFormData.formula?.statisticId || ''}
+                  onChange={(e) => {
+                    setStatFormData(prev => ({
+                      ...prev,
+                      formula: prev.formula ? {
+                        ...prev.formula,
+                        statisticId: e.target.value
+                      } : undefined
+                    }));
+                  }}
+                  disabled={!statFormData.formula?.type}
+                >
+                  <option value="">Select Statistic</option>
+                  {statisticsData
+                    .filter(stat => stat.id !== statFormData.id) // Don't allow self-reference
+                    .map(stat => (
+                      <option key={stat.id} value={stat.id}>
+                        {stat.name}
+                      </option>
+                    ))}
+                </select>
+                <Input
+                  type="number"
+                  value={statFormData.formula?.value || ''}
+                  onChange={(e) => {
+                    setStatFormData(prev => ({
+                      ...prev,
+                      formula: prev.formula ? {
+                        ...prev.formula,
+                        value: Number(e.target.value)
+                      } : undefined
+                    }));
+                  }}
+                  disabled={!statFormData.formula?.type}
+                  placeholder="Value"
+                />
+              </div>
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => {
@@ -745,6 +852,7 @@ export default function Statistics() {
         onLevelUp={handleLevelUp}
         onEditStatistic={openEditDialog}
         onCreateSkill={openCreateSkillDialog}
+        statisticsData={statisticsData}
       />
       {isEditable && (
         <div className="flex justify-end">
@@ -766,9 +874,10 @@ interface StatisticsTableProps {
   onLevelUp: (data: Statistic | Skills) => void;
   onEditStatistic?: (statistic: Statistic) => void;
   onCreateSkill?: (statistic: Statistic) => void;
+  statisticsData: Statistic[];
 }
 
-function StatisticsTable({ data, searchQuery, onDataEdit, isEditable, onLevelUp, onEditStatistic, onCreateSkill }: StatisticsTableProps) {
+function StatisticsTable({ data, searchQuery, onDataEdit, isEditable, onLevelUp, onEditStatistic, onCreateSkill, statisticsData }: StatisticsTableProps) {
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [editingCell, setEditingCell] = useState<{ data: Statistic | Skills; field: string } | null>(null);
   const [editValue, setEditValue] = useState<string>("");
@@ -844,6 +953,8 @@ function StatisticsTable({ data, searchQuery, onDataEdit, isEditable, onLevelUp,
       cell: (info) => {
         const isEditing = editingCell?.data === info.row.original && editingCell?.field === "level";
         const value = info.getValue() as number;
+        const isStatistic = Array.isArray((info.row.original as Statistic).skills);
+        const isFormulaBased = isStatistic && (info.row.original as Statistic).formulaType;
         
         if (isEditing) {
           return (
@@ -861,10 +972,22 @@ function StatisticsTable({ data, searchQuery, onDataEdit, isEditable, onLevelUp,
         
         return (
           <div
-            onClick={() => handleCellClick(info.row.original, "level", value)}
-            className={`${isEditable ? "cursor-pointer hover:bg-gray-50" : ""} px-2 py-1 rounded`}
+            onClick={() => !isFormulaBased && handleCellClick(info.row.original, "level", value)}
+            className={`${isEditable && !isFormulaBased ? "cursor-pointer hover:bg-gray-50" : ""} px-2 py-1 rounded flex items-center gap-2`}
           >
             {value}
+            {isFormulaBased && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InfoIcon className="h-4 w-4 text-blue-500" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>This value is calculated as: {(info.row.original as Statistic).formulaType} by {(info.row.original as Statistic).formulaValue} from {statisticsData.find(s => s.id === (info.row.original as Statistic).formulaStatisticId)?.name}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         );
       },

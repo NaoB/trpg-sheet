@@ -13,6 +13,9 @@ export async function updateStatistic(
     name?: string;
     shortName?: string;
     description?: string;
+    formulaType?: string;
+    formulaStatisticId?: string;
+    formulaValue?: number;
   }
 ) {
   try {
@@ -75,11 +78,36 @@ export async function getStatistics(userId: string) {
       .from(skillsTable)
       .where(inArray(skillsTable.statisticId, statisticIds));
 
-    // Combine statistics with their skills
-    const statisticsWithSkills = statistics.map((stat) => ({
-      ...stat,
-      skills: skills.filter((skill) => skill.statisticId === stat.id),
-    }));
+    // Combine statistics with their skills and compute formula-based values
+    const statisticsWithSkills = statistics.map((stat) => {
+      // If this statistic has a formula, compute its value
+      if (stat.formulaType && stat.formulaStatisticId) {
+        const baseStat = statistics.find(s => s.id === stat.formulaStatisticId);
+        if (baseStat) {
+          let newLevel = baseStat.level;
+          switch (stat.formulaType) {
+            case 'multiply':
+              newLevel = baseStat.level * (stat.formulaValue || 1);
+              break;
+            case 'divide':
+              newLevel = Math.floor(baseStat.level / (stat.formulaValue || 1));
+              break;
+            case 'add':
+              newLevel = baseStat.level + (stat.formulaValue || 0);
+              break;
+            case 'subtract':
+              newLevel = baseStat.level - (stat.formulaValue || 0);
+              break;
+          }
+          stat.level = newLevel;
+        }
+      }
+
+      return {
+        ...stat,
+        skills: skills.filter((skill) => skill.statisticId === stat.id),
+      };
+    });
 
     return { success: true, data: statisticsWithSkills };
   } catch (error) {
@@ -341,7 +369,14 @@ export async function resetAllSkills(userId: string) {
   }
 }
 
-export async function createStatistic(userId: string, data: { name: string; shortName: string; description: string }) {
+export async function createStatistic(userId: string, data: { 
+  name: string; 
+  shortName: string; 
+  description: string;
+  formulaType?: string;
+  formulaStatisticId?: string;
+  formulaValue?: number;
+}) {
   try {
     const statId = uuidv4();
     const statSlug = data.name.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -354,6 +389,9 @@ export async function createStatistic(userId: string, data: { name: string; shor
       description: data.description,
       level: 0,
       slug: statSlug,
+      formulaType: data.formulaType,
+      formulaStatisticId: data.formulaStatisticId,
+      formulaValue: data.formulaValue,
     }).returning();
 
     return { success: true, data: result[0] };

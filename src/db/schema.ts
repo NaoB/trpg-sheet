@@ -15,6 +15,9 @@ export const statisticsTable = pgTable("statistics", {
   description: text().notNull(),
   level: integer().notNull().default(0),
   slug: text().notNull(),
+  formulaType: text(),
+  formulaStatisticId: uuid().references(() => statisticsTable.id),
+  formulaValue: integer(),
 });
 
 export const skillsTable = pgTable("skills", {

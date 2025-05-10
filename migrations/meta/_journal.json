@@ -36,6 +36,13 @@
       "when": 1746897182417,
       "tag": "0004_update_add_slug_in_skills_and_statistics_table",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1746912413690,
+      "tag": "0005_update_add_formula_statistics_table",
+      "breakpoints": true
     }
   ]
 }
