@@ -22,6 +22,14 @@ export async function updateStatistic(
       .where(eq(statisticsTable.id, statisticId))
       .returning();
 
+    // If level is being updated, update all linked skills' base values
+    if (data.level !== undefined) {
+      await db
+        .update(skillsTable)
+        .set({ base: data.level })
+        .where(eq(skillsTable.statisticId, statisticId));
+    }
+
     return { success: true, data: result[0] };
   } catch (error) {
     console.error('Error updating statistic:', error);
@@ -30,6 +38,7 @@ export async function updateStatistic(
 }
 
 export async function updateSkill(
+  userId: string,
   skillId: string,
   data: {
     level?: number;
@@ -359,15 +368,24 @@ export async function createSkill(statisticId: string, data: { name: string; cos
     const skillId = uuidv4();
     const skillSlug = data.name.toLowerCase().replace(/[^a-z0-9]/g, '');
     
+    // Get the statistic's level to set as the base value
+    const statistic = await db
+      .select()
+      .from(statisticsTable)
+      .where(eq(statisticsTable.id, statisticId))
+      .limit(1);
+    
+    const baseValue = statistic[0]?.level ?? 0;
+    
     const result = await db.insert(skillsTable).values({
       id: skillId,
       statisticId,
       name: data.name,
       costPerLevel: data.costPerLevel,
       level: 0,
-      base: 0,
+      base: baseValue,
       bonus: 0,
-      total: 0,
+      total: baseValue, // Total will be base + level + bonus
       slug: skillSlug,
     }).returning();
 

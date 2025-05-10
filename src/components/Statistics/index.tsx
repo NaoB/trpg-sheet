@@ -44,6 +44,13 @@ import {
 import { getStatistics, updateStatistic, updateSkill, getUser, updateUserXp, resetAllSkills, createStatistic, createSkill } from "@/app/actions";
 import { toast } from "sonner";
 import { useParams } from "next/navigation";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
+import { InfoIcon } from "lucide-react";
 
 export default function Statistics() {
   const params = useParams();
@@ -161,39 +168,60 @@ export default function Statistics() {
 
   const handleDataEdit = async (data: Statistic | Skills, field: string, value: number) => {
     try {
-      const isStatistic = Array.isArray((data as Statistic).skills);
-      let result;
-
-      if (isStatistic) {
-        result = await updateStatistic(userId, data.id, { [field]: value });
-      } else {
-        result = await updateSkill(data.id, { [field]: value });
-      }
-
-      if (result.success) {
-        setStatisticsData(prevData => {
-          const updated = prevData.map(stat => {
-            if (isStatistic && stat.id === data.id) {
-              return { ...stat, [field]: value };
-            }
-            if (!isStatistic) {
-              const updatedSkills = stat.skills.map(skill => {
-                if (skill.id === data.id) {
-                  return { ...skill, [field]: value };
-                }
-                return skill;
-              });
-              return { ...stat, skills: updatedSkills };
-            }
-            return stat;
+      if ('skills' in data) {
+        // This is a Statistic
+        const result = await updateStatistic(userId, data.id, { level: value });
+        if (result.success && result.data) {
+          setStatisticsData(prevData => {
+            const updated = prevData.map(stat => {
+              if (stat.id === data.id) {
+                return {
+                  ...stat,
+                  level: value,
+                  // Update all skills' base values to match the new statistic level
+                  skills: stat.skills.map(skill => ({
+                    ...skill,
+                    base: value,
+                    total: value + skill.level + skill.bonus
+                  }))
+                };
+              }
+              return stat;
+            });
+            return updated;
           });
-          return recalculateTotals(updated);
-        });
-        toast.success("Update successful");
+        } else {
+          toast.error("Failed to update statistic");
+        }
       } else {
-        toast.error("Failed to update");
+        // This is a Skill
+        const result = await updateSkill(userId, data.id, { [field]: value });
+        if (result.success && result.data) {
+          setStatisticsData(prevData => {
+            const updated = prevData.map(stat => {
+              if (stat.id === data.statisticId) {
+                return {
+                  ...stat,
+                  skills: stat.skills.map(skill => {
+                    if (skill.id === data.id) {
+                      const updatedSkill = { ...skill, [field]: value };
+                      // Recalculate total based on the new value
+                      updatedSkill.total = updatedSkill.base + updatedSkill.level + updatedSkill.bonus;
+                      return updatedSkill;
+                    }
+                    return skill;
+                  })
+                };
+              }
+              return stat;
+            });
+            return updated;
+          });
+        } else {
+          toast.error("Failed to update skill");
+        }
       }
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('Error updating data:', error);
       toast.error("An error occurred while updating");
     }
@@ -264,7 +292,7 @@ export default function Statistics() {
       const [updateResult, xpResult] = await Promise.all([
         isStatistic
           ? updateStatistic(userId, data.id, { level: data.level + 1 })
-          : updateSkill(data.id, { level: data.level + 1 }),
+          : updateSkill(userId, data.id, { level: data.level + 1 }),
         updateUserXp(userId, finalXP)
       ]);
 
@@ -843,11 +871,29 @@ function StatisticsTable({ data, searchQuery, onDataEdit, isEditable, onLevelUp,
     }),
     columnHelper.accessor("base", {
       header: "Base",
-      cell: (info) => {
-        if (!("base" in info.row.original)) return "-";
+      cell: ({ row }) => {
+        const isStatistic = Array.isArray((row.original as Statistic).skills);
+        const value = row.getValue("base") as number;
         
-        const isEditing = editingCell?.data === info.row.original && editingCell?.field === "base";
-        const value = info.getValue() as number;
+        if (isStatistic) {
+          return (
+            <div className="flex items-center gap-2">
+              <span>{value}</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InfoIcon className="h-4 w-4 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Statistic level used as base value for linked skills</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          );
+        }
+
+        const isEditing = editingCell?.data === row.original && editingCell?.field === "base";
         
         if (isEditing) {
           return (
@@ -862,10 +908,10 @@ function StatisticsTable({ data, searchQuery, onDataEdit, isEditable, onLevelUp,
             />
           );
         }
-        
+
         return (
           <div
-            onClick={() => handleCellClick(info.row.original, "base", value)}
+            onClick={() => handleCellClick(row.original, "base", value)}
             className={`${isEditable ? "cursor-pointer hover:bg-gray-50" : ""} px-2 py-1 rounded`}
           >
             {value}
