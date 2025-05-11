@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, foreignKey } from "drizzle-orm/pg-core";
 
 export const usersTable = pgTable("users", {
   id: uuid().primaryKey(),
@@ -16,9 +16,13 @@ export const statisticsTable = pgTable("statistics", {
   level: integer().notNull().default(0),
   slug: text().notNull(),
   formulaType: text(),
-  formulaStatisticId: uuid().references(() => statisticsTable.id),
+  formulaStatisticId: uuid(),
   formulaValue: integer(),
-});
+}, (table) => [foreignKey({
+  columns: [table.formulaStatisticId],
+  foreignColumns: [table.id],
+  name: "statistics_formulaStatisticId_statistics_id_fk",
+}),]);
 
 export const skillsTable = pgTable("skills", {
   id: uuid().primaryKey(),
